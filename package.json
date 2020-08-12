@@ -1,16 +1,14 @@
 {
   "name": "uc-comp-codemod",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "",
   "main": "index.js",
   "scripts": {
     "testUc": "jest ./transforms/__tests__/uc-comp-to-react-comp-test.js "
   },
   "dependencies": {
-    "chalk": "^2.4.2",
     "eslint": "^6.6.0",
     "execa": "^3.2.0",
-    "is-git-clean": "^1.1.0",
     "jscodeshift": "^0.6.4",
     "meow": "^5.0.0"
   },
