@@ -3,7 +3,7 @@
 
 const defineTest = require("jscodeshift/dist/testUtils").defineTest;
 
-[...Array(1).keys()].forEach((test) => {
+[...Array(2).keys()].forEach((test) => {
   defineTest(
     __dirname,
     "uc-comp-to-react-comp",

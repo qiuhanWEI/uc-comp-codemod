@@ -54,6 +54,8 @@ module.exports = function (file, api, options) {
     return attributes.filter((attr) => !attr.isRemoved);
   };
 
+  debugger;
+
   // Find alpha-sorted import that would follow react
   function findImportAfterReact(j, root) {
     let target, targetName;
@@ -175,6 +177,13 @@ module.exports = function (file, api, options) {
     return attributes;
   };
 
+  const getAttribute = (attributes, key) => {
+    const attribute = attributes.find((attr) => attr.name.name === key);
+    if (attribute) {
+      return attribute.value.type === "Literal" ? attribute.value.value : null;
+    }
+  };
+
   const dealWithBtChildren = (children) => {
     children
       .filter((child) => child.type === "JSXElement")
@@ -196,6 +205,33 @@ module.exports = function (file, api, options) {
     );
   };
 
+  const dealWithBtGroupAttr = (attributes) => {
+    // 若是Button.Group 形式，新增属性sharedProps
+    const sizeProperty = getAttribute(attributes, "size");
+
+    if (sizeProperty) {
+      const property = j.property(
+        "init",
+        j.identifier("size"),
+        j.stringLiteral(sizeProperty)
+      );
+
+      const newAttr = [
+        {
+          label: "sharedProps",
+          value: j.objectExpression([property]),
+        },
+      ];
+
+      return modifyAttributes(
+        attributes,
+        [{ oldAttr: "size", newAttr: null }],
+        newAttr
+      );
+    }
+    return attributes;
+  };
+
   const isCertainMemberExpression = (node, object, property) => {
     const memExpressName = node.openingElement.name;
     return (
@@ -203,13 +239,6 @@ module.exports = function (file, api, options) {
       memExpressName.object.name === object &&
       memExpressName.property.name === property
     );
-  };
-
-  const getAttribute = (attributes, key) => {
-    const attribute = attributes.find((attr) => attr.name.name === key);
-    if (attribute) {
-      return attribute.value.type === "Literal" ? attribute.value.value : null;
-    }
   };
 
   // 新旧组件转换方法数组
@@ -242,8 +271,10 @@ module.exports = function (file, api, options) {
     { old: "Radio" },
     {
       old: "Button",
-      property: [{ Radio: "Group" }], // 旧组件支持 Button.Radio, 替换时将 Radio->Group
-      propertyChangedName: "Radio", // 如果替换了Radio->Group，则需要将Button -> Radio.
+      property: [
+        { Radio: { newPropertyName: "Group", newKeyName: "Radio" } },
+        { Group: { newKeyName: "Combine" } },
+      ], // const { Radio } = Button; ---》const { Group } = Radio;
       transAttribute: (attributes, isJSXMemberExpression, node) => {
         if (isJSXMemberExpression) {
           if (isCertainMemberExpression(node, "Radio", "Group")) {
@@ -256,30 +287,7 @@ module.exports = function (file, api, options) {
             return modifyAttributes(attributes, modifyAttr, newAttr);
           }
           if (node.openingElement.name.name === "Combine") {
-            // 若是Button.Group 形式，新增属性sharedProps
-            const sizeProperty = getAttribute(attributes, "size");
-
-            if (sizeProperty) {
-              const property = j.property(
-                "init",
-                j.identifier("size"),
-                j.stringLiteral(sizeProperty)
-              );
-
-              const newAttr = [
-                {
-                  label: "sharedProps",
-                  value: j.objectExpression([property]),
-                },
-              ];
-
-              return modifyAttributes(
-                attributes,
-                [{ oldAttr: "size", newAttr: null }],
-                newAttr
-              );
-            }
-            return attributes;
+            return dealWithBtGroupAttr(attributes);
           }
         } else {
           // 若是Button，且有type，替换type =》 styleType；若无type，添加 styleType: primary
@@ -338,6 +346,14 @@ module.exports = function (file, api, options) {
       },
     },
     {
+      old: "ButtonGroup",
+      new: "Combine",
+      ignoreAdd: true,
+      transAttribute: (attributes) => {
+        return dealWithBtGroupAttr(attributes);
+      },
+    },
+    {
       old: "Notice",
       transAttribute: (attributes) => {
         const changeNoticeType = (t) => {
@@ -378,7 +394,10 @@ module.exports = function (file, api, options) {
     },
     {
       old: "Input",
-      property: [{ Number: "Number" }], // 处理 const { Number } = Input;
+      property: [
+        { Number: { newKeyName: "Input" } }, // 处理 const { Number } = Input;
+        { InputWithTip: { newKeyName: "Input" } }, // 处理 const { InputWithTip } = Input;
+      ],
       transMemExpress: (node) => {
         const memExpressName = node.openingElement.name;
         if (
@@ -386,17 +405,11 @@ module.exports = function (file, api, options) {
           memExpressName.property.name === "InputWithTip"
         ) {
           addNewCompImport("Input");
-          // 新组件不支持InputWithTip。改为Input
-          node.openingElement = {
-            ...node.openingElement,
-            name: j.jsxOpeningElement(j.jsxIdentifier("Input")).name,
-          };
-          if (!node.openingElement.selfClosing) {
-            node.closingElement = {
-              ...node.closingElement,
-              name: j.jsxClosingElement(j.jsxIdentifier("Input")).name,
-            };
-          }
+          // 新组件不支持Input.InputWithTip。先改为Input
+          changeCompName(node, {
+            old: "Input",
+            newName: "Input",
+          });
         }
       },
       transAttribute: (attributes) => {
@@ -408,6 +421,7 @@ module.exports = function (file, api, options) {
         return modifyAttributes(attributes, modifyAttr);
       },
     },
+    { old: "InputInputWithTip", new: "Input", ignoreAdd: true },
     {
       old: "InputNumber",
       new: "NumberInput",
@@ -464,7 +478,7 @@ module.exports = function (file, api, options) {
       );
     });
 
-  // 2. 找到形如 const { Radio } = Button; 判断是否可替换
+  // 2. 找到形如 const { Group } = Button; 判断是否可替换。若可被替换为Combine，则删除该行。
   root
     .find(j.VariableDeclarator, {
       id: { type: "ObjectPattern" },
@@ -482,21 +496,25 @@ module.exports = function (file, api, options) {
         const oldPropertyName = prop.key.name; // Radio
 
         (oldCompToTrans.property || []).forEach((p) => {
-          if (p[oldPropertyName]) {
+          const oldPropertyTransMap = p[oldPropertyName]; //{ newPropertyName: "Group", newKeyName: "Radio" }
+          if (oldPropertyTransMap) {
             const joinOldCompName = path.node.init.name + oldPropertyName; // ButtonRadio
             oldCompsArray.push(joinOldCompName);
             // 修改旧引用
-            const { propertyChangedName } = oldCompToTrans;
-            propertyChangedName && (path.node.init.name = propertyChangedName);
-            prop.key.name = p[oldPropertyName];
+            const { newPropertyName, newKeyName } = oldPropertyTransMap;
+            newKeyName && (path.node.init.name = newKeyName);
+            prop.key.name = newPropertyName;
             // 新增新组件引用
-            propertyChangedName && addNewCompImport(propertyChangedName);
+            newKeyName && addNewCompImport(newKeyName);
             // 修改Radio 使用时的名称，以免与新组件发生混淆
             changeOldCompName(oldPropertyName, joinOldCompName);
           }
         });
       });
-    });
+      path.node.id.properties = properties.filter((p) => p.key.name);
+      return !path.node.id.properties.length;
+    })
+    .forEach((path2) => j(path2.parentPath.parentPath).remove());
 
   // 3. 找到组件的调用代码并判断是否替换
   root.find(j.JSXElement).forEach((path) => {
