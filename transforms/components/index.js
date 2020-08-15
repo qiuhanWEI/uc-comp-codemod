@@ -7,6 +7,8 @@ module.exports = function (j, root) {
   const Tip = require("./Tip.js")(j, root);
   const Loading = require("./Loading.js")(j, root);
   const Radio = require("./Radio.js")(j, root);
+  const Select = require("./Select.js")(j, root);
+  const Icon = require("./Icon.js")(j, root);
 
-  return { ...Btn, ...Input, Notice, Tip, Radio, Loading };
+  return { ...Btn, ...Input, Notice, Tip, Radio, Loading, Select, Icon };
 };

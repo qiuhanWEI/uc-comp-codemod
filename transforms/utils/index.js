@@ -132,8 +132,18 @@ module.exports = function (j, root) {
   const getAttribute = (attributes, key) => {
     const attribute = attributes.find((attr) => attr.name.name === key);
     if (attribute) {
-      return attribute.value.type === "Literal" ? attribute.value.value : null;
+      if (!attribute.value) {
+        return true;
+      }
+      if (attribute.value.type === "Literal") {
+        return attribute.value.value;
+      }
+      const { expression } = attribute.value;
+      if (expression) {
+        return expression.value || expression.properties;
+      }
     }
+    return null;
   };
 
   const changeMemberExpressionToIdentifier = (
