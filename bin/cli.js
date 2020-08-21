@@ -1,6 +1,8 @@
 const meow = require("meow");
 const path = require("path");
 const execa = require("execa");
+const chalk = require("chalk");
+const isGitClean = require("is-git-clean");
 
 const transformerDirectory = path.join(__dirname, "../", "transforms");
 const jscodeshiftExecutable = require.resolve(".bin/jscodeshift");
@@ -56,6 +58,35 @@ function runTransform({ files, flags, parser }) {
   }
 }
 
+function checkGitStatus(force) {
+  let clean = false;
+  let errorMessage = "Unable to determine if git directory is clean";
+  try {
+    clean = isGitClean.sync(process.cwd());
+    errorMessage = "Git directory is not clean";
+  } catch (err) {
+    if (err && err.stderr && err.stderr.indexOf("Not a git repository") >= 0) {
+      clean = true;
+    }
+  }
+
+  if (!clean) {
+    if (force) {
+      console.log(`WARNING: ${errorMessage}. Forcibly continuing.`);
+    } else {
+      console.log(
+        chalk.yellow(
+          "Before we continue, please stash or commit your git changes."
+        )
+      );
+      console.log(
+        "\nYou may use the --force flag to override this safety check."
+      );
+      process.exit(1);
+    }
+  }
+}
+
 function run() {
   const cli = meow(
     {
@@ -83,6 +114,10 @@ function run() {
       },
     }
   );
+
+  if (!cli.flags.dry) {
+    checkGitStatus(cli.flags.force);
+  }
 
   return runTransform({
     files: cli.input[0],
