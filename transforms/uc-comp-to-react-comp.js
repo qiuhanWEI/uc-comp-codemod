@@ -131,6 +131,9 @@ module.exports = function (file, api, options) {
       return;
     }
 
+    // 预处理
+    transEle.preProcess && transEle.preProcess(path.node);
+
     if (isJSXMemberExpression) {
       // 处理 <Comp.xxx></Comp.xxx> 情况
       transEle.transMemExpress && transEle.transMemExpress(path.node);

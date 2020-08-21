@@ -12,11 +12,13 @@ module.exports = function (j, root) {
   const Checkbox = require("./Checkbox.js")(j, root);
   const Switch = require("./Switch.js")(j, root);
   const Slider = require("./Slider.js")(j, root);
+  const Row = require("./Row.js")(j, root);
 
   return {
     ...Btn,
     ...Input,
     ...Checkbox,
+    ...Row,
     Notice,
     Tip,
     Radio,
