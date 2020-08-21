@@ -140,7 +140,7 @@ module.exports = function (j, root) {
       }
       const { expression } = attribute.value;
       if (expression) {
-        return expression.value || expression.properties;
+        return expression.value || expression.properties || expression.name || expression;
       }
     }
     return null;

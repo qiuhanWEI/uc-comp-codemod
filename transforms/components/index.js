@@ -9,6 +9,21 @@ module.exports = function (j, root) {
   const Radio = require("./Radio.js")(j, root);
   const Select = require("./Select.js")(j, root);
   const Icon = require("./Icon.js")(j, root);
+  const Checkbox = require("./Checkbox.js")(j, root);
+  const Switch = require("./Switch.js")(j, root);
+  const Slider = require("./Slider.js")(j, root);
 
-  return { ...Btn, ...Input, Notice, Tip, Radio, Loading, Select, Icon };
+  return {
+    ...Btn,
+    ...Input,
+    ...Checkbox,
+    Notice,
+    Tip,
+    Radio,
+    Loading,
+    Select,
+    Icon,
+    Switch,
+    Slider,
+  };
 };
